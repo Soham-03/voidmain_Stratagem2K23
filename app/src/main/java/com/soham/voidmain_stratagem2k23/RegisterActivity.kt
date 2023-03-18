@@ -1,7 +1,10 @@
 package com.soham.voidmain_stratagem2k23
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -15,8 +18,13 @@ import com.google.firebase.auth.*
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.face.FaceDetection
+import com.google.mlkit.vision.face.FaceDetector
+import com.google.mlkit.vision.face.FaceDetectorOptions
 import com.soham.voidmain_stratagem2k23.Global.user
 import com.soham.voidmain_stratagem2k23.databinding.ActivityRegisterBinding
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 class RegisterActivity : AppCompatActivity() {
@@ -28,12 +36,23 @@ class RegisterActivity : AppCompatActivity() {
     private lateinit var imageUri: Uri
     private lateinit var storageReference: StorageReference
     private lateinit var user: FirebaseUser
+    private lateinit var detector: FaceDetector
+    private var image: Bitmap? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         binding  = ActivityRegisterBinding.inflate(layoutInflater)
         auth = FirebaseAuth.getInstance()
         db = FirebaseFirestore.getInstance()
         storageReference = FirebaseStorage.getInstance().reference
+        val realTimeFdo = FaceDetectorOptions.Builder()
+            .setContourMode(FaceDetectorOptions.CONTOUR_MODE_ALL)
+            .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
+            .build()
+
+        detector = FaceDetection.getClient(realTimeFdo)
+
         binding.btnSendOTP.setOnClickListener {
             val options = PhoneAuthOptions.newBuilder(auth)
                 .setPhoneNumber("+91"+binding.edtTxtPhoneNumber.text.toString())       // Phone number to verify
@@ -44,15 +63,26 @@ class RegisterActivity : AppCompatActivity() {
             PhoneAuthProvider.verifyPhoneNumber(options)
         }
 
+        binding.btnEmergency.setOnClickListener {
+            try {
+                val my_callIntent = Intent(Intent.ACTION_DIAL)
+                my_callIntent.data = Uri.parse("tel:+9188888888")
+                //here the word 'tel' is important for making a call...
+                startActivity(my_callIntent)
+            } catch (e: ActivityNotFoundException) {
+                Toast.makeText(
+                    applicationContext,
+                    "Error in your phone call" + e.message,
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+
         binding.txtSignIn.setOnClickListener {
             startActivity(Intent(this@RegisterActivity,SignInActivity::class.java))
         }
 
         binding.btnCaptureImage.setOnClickListener {
-            startActivity(Intent(this@RegisterActivity,CameraActivity::class.java))
-        }
-
-        binding.btnCaptureImage2.setOnClickListener {
             ImagePicker.with(this)
                 .compress(1024)//Final image size will be less than 1 MB(Optional)
                 .crop(1f,1f)
@@ -89,7 +119,8 @@ class RegisterActivity : AppCompatActivity() {
             if (resultCode == Activity.RESULT_OK) {
                 val fileUri = data?.data!!
                 imageUri = fileUri
-                uploadImageToStorage()
+                val image = uriToBitmap(fileUri)
+                analiseImage(image!!)
             }
             else if (resultCode == ImagePicker.RESULT_ERROR) {
                 Toast.makeText(this@RegisterActivity, ImagePicker.getError(data), Toast.LENGTH_SHORT).show()
@@ -99,40 +130,89 @@ class RegisterActivity : AppCompatActivity() {
             }
         }
 
+    private fun uriToBitmap(selectedFileUri: Uri): Bitmap? {
+        try {
+            val parcelFileDescriptor =
+                contentResolver.openFileDescriptor(selectedFileUri, "r")
+            val fileDescriptor = parcelFileDescriptor?.fileDescriptor
+            image = BitmapFactory.decodeFileDescriptor(fileDescriptor)
+            parcelFileDescriptor?.close()
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+        return image
+    }
+
+    private fun analiseImage(bitmap: Bitmap) {
+        //Make image smaller to do processing faster
+        val smallerBitmap = Bitmap.createScaledBitmap(
+            bitmap,
+            bitmap.width / 10,
+            bitmap.height / 10,
+            false
+        )
+
+        //Input Image for analyzing
+        val inputImage = InputImage.fromBitmap(smallerBitmap, 0)
+        //start detecting
+        detector.process(inputImage)
+            .addOnSuccessListener {faces->
+                //Task completed
+
+                for (face in faces){
+                    val rect = face.boundingBox
+                    rect.set(
+                        rect.left * 10,
+                        rect.top * (10 - 1),
+                        rect.right * (10),
+                        rect.bottom * 10 + 90
+                    )
+                    face.trackingId
+                }
+                println(faces)
+                if(faces.isEmpty()) {
+                    Toast.makeText(this, "No Face Detected, Please click again", Toast.LENGTH_SHORT)
+                        .show()
+                    ImagePicker.with(this)
+                        .compress(1024)//Final image size will be less than 1 MB(Optional)
+                        .maxResultSize(800, 800)
+                        .cameraOnly()    //User can only capture image using Camera
+                        .createIntent { intent ->
+                            startForProfileImageResult.launch(intent)
+                        }
+                }
+                else{
+                    Toast.makeText(this, "Face Detected", Toast.LENGTH_SHORT).show()
+                    uploadImageToStorage()
+                }
+
+//                cropDetectedFace(bitmap, faces)
+                println("Face Detected")
+            }
+            .addOnFailureListener {e->
+                Toast.makeText(this, "Failed due to ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
     private fun getCallBacks(): PhoneAuthProvider.OnVerificationStateChangedCallbacks {
         val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
 
             override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                // This callback will be invoked in two situations:
-                // 1 - Instant verification. In some cases the phone number can be instantly
-                //     verified without needing to send or enter a verification code.
-                // 2 - Auto-retrieval. On some devices Google Play services can automatically
-                //     detect the incoming verification SMS and perform verification without
-                //     user action.
                 signInWithPhoneAuthCredential(credential)
             }
 
             override fun onVerificationFailed(e: FirebaseException) {
-                // This callback is invoked in an invalid request for verification is made,
-                // for instance if the the phone number format is not valid.
-
                 if (e is FirebaseAuthInvalidCredentialsException) {
                     Toast.makeText(this@RegisterActivity, "Invalid OTP", Toast.LENGTH_SHORT).show()
                 } else if (e is FirebaseTooManyRequestsException) {
                     Toast.makeText(this@RegisterActivity, "Some Error occurred from our side", Toast.LENGTH_SHORT).show()
                 }
-
-                // Show a message and update the UI
             }
 
             override fun onCodeSent(
                 verificationId: String,
                 token: PhoneAuthProvider.ForceResendingToken
             ) {
-                // The SMS verification code has been sent to the provided phone number, we
-                // now need to ask the user to enter the code and then construct a credential
-                // by combining the code with a verification ID.
-                // Save verification ID and resending token so we can use them later
                 Toast.makeText(this@RegisterActivity, "OTP Sent", Toast.LENGTH_SHORT).show()
                 storedVerificationId = verificationId
                 resendToken = token
@@ -149,16 +229,13 @@ class RegisterActivity : AppCompatActivity() {
         auth.signInWithCredential(credential)
             .addOnCompleteListener(this) { task ->
                 if (task.isSuccessful) {
-                    // Sign in success, update UI with the signed-in user's information
                     val user = task.result?.user
                     this.user = user!!
                     setDataOnDb(user!!)
                 } else {
-                    // Sign in failed, display a message and update the UI
                     if (task.exception is FirebaseAuthInvalidCredentialsException) {
                         Toast.makeText(this@RegisterActivity, "Invalid OTP", Toast.LENGTH_SHORT).show()
                     }
-                    //update ui
                 }
             }
     }

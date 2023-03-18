@@ -1,13 +1,14 @@
 package com.soham.voidmain_stratagem2k23
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
-import androidx.appcompat.app.AppCompatActivity
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.FirebaseException
 import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.*
-import com.soham.voidmain_stratagem2k23.databinding.ActivityMainBinding
 import com.soham.voidmain_stratagem2k23.databinding.ActivitySigninBinding
 import java.util.concurrent.TimeUnit
 
@@ -34,6 +35,22 @@ class SignInActivity : AppCompatActivity() {
         binding.txtCreateAccount.setOnClickListener {
             startActivity(Intent(this@SignInActivity,RegisterActivity::class.java))
         }
+
+        binding.btnEmergency.setOnClickListener {
+            try {
+                val my_callIntent = Intent(Intent.ACTION_DIAL)
+                my_callIntent.data = Uri.parse("tel:+9188888888")
+                //here the word 'tel' is important for making a call...
+                startActivity(my_callIntent)
+            } catch (e: ActivityNotFoundException) {
+                Toast.makeText(
+                    applicationContext,
+                    "Error in your phone call" + e.message,
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+
         setContentView(binding.root)
     }
 
@@ -41,18 +58,10 @@ class SignInActivity : AppCompatActivity() {
         val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
 
             override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                // This callback will be invoked in two situations:
-                // 1 - Instant verification. In some cases the phone number can be instantly
-                //     verified without needing to send or enter a verification code.
-                // 2 - Auto-retrieval. On some devices Google Play services can automatically
-                //     detect the incoming verification SMS and perform verification without
-                //     user action.
                 signInWithPhoneAuthCredential(credential)
             }
 
             override fun onVerificationFailed(e: FirebaseException) {
-                // This callback is invoked in an invalid request for verification is made,
-                // for instance if the the phone number format is not valid.
 
                 if (e is FirebaseAuthInvalidCredentialsException) {
                     Toast.makeText(this@SignInActivity, "Invalid OTP", Toast.LENGTH_SHORT).show()
@@ -67,10 +76,6 @@ class SignInActivity : AppCompatActivity() {
                 verificationId: String,
                 token: PhoneAuthProvider.ForceResendingToken
             ) {
-                // The SMS verification code has been sent to the provided phone number, we
-                // now need to ask the user to enter the code and then construct a credential
-                // by combining the code with a verification ID.
-                // Save verification ID and resending token so we can use them later
                 Toast.makeText(this@SignInActivity, "OTP Sent", Toast.LENGTH_SHORT).show()
                 storedVerificationId = verificationId
                 resendToken = token
@@ -87,7 +92,6 @@ class SignInActivity : AppCompatActivity() {
         auth.signInWithCredential(credential)
             .addOnCompleteListener(this) { task ->
                 if (task.isSuccessful) {
-                    // Sign in success, update UI with the signed-in user's information
                     Toast.makeText(this@SignInActivity, "Sign in Successful", Toast.LENGTH_SHORT).show()
                     val user = task.result?.user
                     Global.user = user
@@ -95,7 +99,6 @@ class SignInActivity : AppCompatActivity() {
                     val intent = Intent(this@SignInActivity,MainActivity::class.java)
                     startActivity(intent)
                 } else {
-                    // Sign in failed, display a message and update the UI
                     if (task.exception is FirebaseAuthInvalidCredentialsException) {
                         Toast.makeText(this@SignInActivity, "Invalid OTP", Toast.LENGTH_SHORT).show()
                     }

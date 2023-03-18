@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/home"
+        android:enabled="true"
+        android:icon="@drawable/home"
+        android:title=" Home "
+        app:cnb_backgroundColor="#73F8EB"
+        android:iconTint="@color/black"
+        app:cnb_textColor="@color/black" />
+
+    <item
+        android:id="@+id/myAppointments"
+        android:enabled="true"
+        android:icon="@drawable/schedule"
+        android:title="My Appointments"
+        app:cnb_backgroundColor="#73F8EB"
+        android:iconTint="@color/black"
+        app:cnb_textColor="@color/black" />
+
+    <item
+        android:id="@+id/profile"
+        android:enabled="true"
+        android:icon="@drawable/user"
+        android:title=" Profile "
+        app:cnb_backgroundColor="#73F8EB"
+        app:cnb_textColor="@color/black"
+        android:iconTint="@color/black"/>
+
+</menu>

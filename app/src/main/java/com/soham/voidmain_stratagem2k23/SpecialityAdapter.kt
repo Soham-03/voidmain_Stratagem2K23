@@ -22,10 +22,33 @@ class SpecialityAdapter(private val listOfSpecialities: ArrayList<Int>, private 
     }
 
     override fun onBindViewHolder(holder: MyViewHolder, position: Int) {
+        var speciality: String = ""
+
         val image = listOfSpecialities[position]
         holder.imageViewSpeciality.setImageResource(image)
         holder.itemView.setOnClickListener {
+            when(position){
+                0->{
+                    speciality = "Cardiologist"
+                }
+                1->{
+                    speciality = "Neurologist"
+                }
+                2->{
+                    speciality = "Orthopedic"
+                }
+                3->{
+                    speciality = "Gynecologist"
+                }
+                4->{
+                    speciality = "Nephrologist"
+                }
+                else->{
+                    speciality = "Physician"
+                }
+            }
             val intent = Intent(context,ShowDoctors::class.java)
+            intent.putExtra("speciality",speciality)
             context.startActivity(intent)
         }
     }

@@ -21,32 +21,26 @@ class ShowDoctors : AppCompatActivity() {
         binding = ActivityShowDoctorsBinding.inflate(layoutInflater)
         db = FirebaseFirestore.getInstance()
         listOfDoctors = ArrayList()
-
-        db.collection("doctors")
+        val speciality = intent.getStringExtra("speciality")
+        db.collection("doctors").whereEqualTo("speciality",speciality)
             .get()
-            .addOnCompleteListener { p0 ->
-                if (p0.isSuccessful) {
-                    for (doc in p0.result) {
-                        listOfDoctors.add(
-                            Doctor(
-                                doc.id,
-                                doc["name"].toString(),
-                                doc["speciality"].toString(),
-                                doc["appointmentsRemaining"].toString().toInt(),
-                                doc["daysOfTheWeek"].toString(),
-                                doc["roomNo"].toString()
-                            )
+            .addOnSuccessListener {
+                for (doc in it) {
+                    listOfDoctors.add(
+                        Doctor(
+                            doc.id,
+                            doc["name"].toString(),
+                            doc["speciality"].toString(),
+                            doc["appointmentsRemaining"].toString().toInt(),
+                            doc["daysOfTheWeek"].toString(),
+                            doc["roomNo"].toString()
                         )
-                    }
-                    adapter = BookAppointmentAdapter(listOfDoctors,this@ShowDoctors)
-                    adapter.notifyDataSetChanged()
-                    binding.txtDoctorsList.layoutManager = LinearLayoutManager(this@ShowDoctors,LinearLayoutManager.VERTICAL,false)
-                    binding.txtDoctorsList.adapter = adapter
-                    println(listOfDoctors)
-                } else {
-                    Toast.makeText(this@ShowDoctors, "Failed to retrieve Data", Toast.LENGTH_SHORT)
-                        .show()
+                    )
                 }
+                adapter = BookAppointmentAdapter(listOfDoctors,this@ShowDoctors)
+                binding.txtDoctorsList.layoutManager = LinearLayoutManager(this@ShowDoctors,LinearLayoutManager.VERTICAL,false)
+                binding.txtDoctorsList.adapter = adapter
+                println(listOfDoctors)
             }
 
         setContentView(binding.root)
